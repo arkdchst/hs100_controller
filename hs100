@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+import socket
+import argparse
+
+
+key = 0xAB
+
+def encrypt(value):
+	values = list(value)
+	b = key
+
+	for i in range(len(values)):
+		a = ord(values[i])
+		values[i] = chr(a ^ int(b))
+		b = ord(values[i])
+
+	return "".join(values).encode('latin_1')
+
+
+def decrypt(value):
+	values = list(value.decode('latin_1'))
+	b = key
+	
+	for i in range(len(values)):
+		a = ord(values[i])
+		values[i] = chr(a ^ b)
+		b = a
+
+	return "".join(values)
+
+
+
+def parse():
+	mainParser = argparse.ArgumentParser()
+	mainParser.add_argument('ip')
+	mainParser.add_argument('-p', default = 9999, type = int, choices = (1, 65535 - 1), help = 'port', metavar = 'port', dest = 'port')
+
+	subs = mainParser.add_subparsers(metavar = 'command', dest = 'cmd1')
+	subs.required = True
+
+
+
+	var = subs.add_parser('set', help = 'change relay state')
+	var.add_argument('state', type = int, choices = [0, 1], help = 'relay state', metavar = 'state')
+
+	subs.add_parser('reboot', help = 'reboot device')
+	subs.add_parser('reset', help = 'reset to factory settings')
+	subs.add_parser('info', help = 'get system info')
+
+	var = subs.add_parser('send_json', help = 'send JSON')
+	var.add_argument('json', type = str, help = 'JSON', metavar = 'json')
+
+
+
+
+	var = subs.add_parser('led', help = 'change led state')
+	var.add_argument('state', type = int, choices = range(0, 24), help = 'led state', metavar = 'state')
+
+
+
+
+	var = subs.add_parser('time', help = '')
+
+	subs2 = var.add_subparsers(metavar = 'command', dest = 'cmd2')
+	subs2.required = True
+	subs2.add_parser('get', help = 'get system time')
+	subs2.add_parser('get_timezone', help = 'get system timezone')
+
+	var = subs2.add_parser('set_timezone', help = 'set system timezone')
+	var.add_argument('timezone', type = int, help = 'timezone', metavar = 'timezone')
+
+
+
+
+
+	var = subs.add_parser('schedule', help = '')
+
+	subs2 = var.add_subparsers(metavar = 'command', dest = 'cmd2')
+	subs2.required = True
+	subs2.add_parser('get', help = 'get schedule rules')
+
+	var = subs2.add_parser('add', help = 'add schedule rule')
+	var.add_argument('h', type = int, choices = range(0, 24), help = 'hours', metavar = 'h')
+	var.add_argument('m', type = int, choices = range(0, 60), help = 'minutes', metavar = 'm')
+	var.add_argument('D', type = int, choices = range(1, 31), help = 'day', metavar = 'D')
+	var.add_argument('M', type = int, choices = range(1, 12), help = 'month', metavar = 'M')
+	var.add_argument('Y', type = int, help = 'year', metavar = 'Y')
+	var.add_argument('d', nargs = 7, type = int, choices = [0, 1], help = 'days of the week', metavar = 'd')
+	var.add_argument('repeat', type = int, choices = [0, 1], help = 'repeat', metavar = 'repeat')
+	var.add_argument('state', type = int, choices = [0, 1], help = 'relay state', metavar = 'state')
+	var.add_argument('enable', type = int, choices = [0, 1], help = 'enable rule', metavar = 'enable')
+
+	var = subs2.add_parser('edit', help = 'edit schedule rule')
+	var.add_argument('id', type = str, help = 'rule id', metavar = 'id')
+	var.add_argument('h', type = int, choices = range(0, 24), help = 'hours', metavar = 'h')
+	var.add_argument('m', type = int, choices = range(0, 60), help = 'minutes', metavar = 'm')
+	var.add_argument('D', type = int, choices = range(1, 31), help = 'day', metavar = 'D')
+	var.add_argument('M', type = int, choices = range(1, 12), help = 'month', metavar = 'M')
+	var.add_argument('Y', type = int, help = 'year', metavar = 'Y')
+	var.add_argument('d', nargs = 7, type = int, choices = [0, 1], help = 'days of the week', metavar = 'd')
+	var.add_argument('repeat', type = int, choices = [0, 1], help = 'repeat', metavar = 'repeat')
+	var.add_argument('state', type = int, choices = [0, 1], help = 'relay state', metavar = 'state')
+	var.add_argument('enable', type = int, choices = [0, 1], help = 'enable rule', metavar = 'enable')
+
+	var = subs2.add_parser('delete', help = 'delete schedule rule')
+	var.add_argument('id', type = str, help = 'rule id', metavar = 'id')
+
+	subs2.add_parser('delete_all', help = 'delete all schedule rules')
+
+
+
+
+
+	var = subs.add_parser('countdown', help = '')
+
+	subs2 = var.add_subparsers(metavar = 'command', dest = 'cmd2')
+	subs2.required = True
+	subs2.add_parser('get', help = 'get countdown rules')
+
+	var = subs2.add_parser('add', help = 'add countdown rule')
+	var.add_argument('h', type = int, choices = range(0, 24), help = 'hours', metavar = 'h')
+	var.add_argument('m', type = int, choices = range(0, 60), help = 'minutes', metavar = 'm')
+	var.add_argument('s', type = int, choices = range(0, 60), help = 'seconds', metavar = 's')
+	var.add_argument('state', type = int, choices = [0, 1], help = 'relay state', metavar = 'state')
+	var.add_argument('enable', type = int, choices = [0, 1], help = 'enable rule', metavar = 'enable')
+
+	var = subs2.add_parser('edit', help = 'edit countdown rule')
+	var.add_argument('id', type = str, help = 'rule id', metavar = 'id')
+	var.add_argument('h', type = int, choices = range(0, 24), help = 'hours', metavar = 'h')
+	var.add_argument('m', type = int, choices = range(0, 60), help = 'minutes', metavar = 'm')
+	var.add_argument('s', type = int, choices = range(0, 60), help = 'seconds', metavar = 's')
+	var.add_argument('state', type = int, choices = [0, 1], help = 'relay state', metavar = 'state')
+	var.add_argument('enable', type = int, choices = [0, 1], help = 'enable rule', metavar = 'enable')
+
+	var = subs2.add_parser('delete', help = 'delete countdown rule')
+	var.add_argument('id', type = str, help = 'rule id', metavar = 'id')
+
+	subs2.add_parser('delete_all', help = 'delete all countdown rules')
+
+
+
+
+
+	args = mainParser.parse_args()
+	return args
+
+
+def createRequest(args):
+	request = None
+
+
+	if args.cmd1 == 'set':
+		request = '{{"system":{{"set_relay_state":{{"state":{}}}}}}}'.format(args.state)
+
+	elif args.cmd1 == 'reboot':
+		request = '{"system":{"reboot":{"delay":1}}}'
+
+	elif args.cmd1 == 'reset':
+		request = '{"system":{"reset":{"delay":1}}}'
+
+	elif args.cmd1 == 'info':
+		request = '{"system":{"get_sysinfo":null}}'
+	
+	elif args.cmd1 == 'send_json':
+		request = args.json
+
+	elif args.cmd1 == 'led':
+		request = '{{"system":{{"set_led_off":{{"off":{}}}}}}}'.format(1 - args.state)
+
+
+	elif args.cmd1 == 'time':
+		if args.cmd2 == 'get':
+			request = '{"time":{"get_time":null}}'
+
+		elif args.cmd2 == 'get_timezone':
+			request = '{"time":{"get_timezone":null}}'
+
+		elif args.cmd2 == 'set_timezone':
+			request = '{{"time":{{"set_timezone":{{"year":0,"month":0,"mday":0,"hour":0,"min":0,"sec":0,"index":{}}}}}}}'.format(args.timezone)
+
+
+	elif args.cmd1 == 'schedule':
+		if args.cmd2 == 'get':
+			request = '{"schedule":{"get_rules":null}}'
+
+		elif args.cmd2 == 'add':
+			request = '{{"schedule":{{"add_rule":{{"stime_opt":0,"wday":[{},{},{},{},{},{},{}],"smin":{},"enable":{},"repeat":{},"etime_opt":-1,"name":"","eact":-1,"month":{},"sact":{},"year":{},"longitude":0,"day":{},"force":0,"latitude":0,"emin":0}},"set_overall_enable":{{"enable":1}}}}}}'.format(args.d[0], args.d[1], args.d[2], args.d[3], args.d[4], args.d[5], args.d[6], args.h * 60 + args.m, args.enable, args.repeat, args.M, args.state, args.Y, args.D)
+
+		elif args.cmd2 == 'edit':
+			request = '{{"schedule":{{"edit_rule":{{"stime_opt":0,"wday":[{},{},{},{},{},{},{}],"smin":{},"enable":{},"repeat":{},"etime_opt":-1,"id":"{}","name":"","eact":-1,"month":{},"sact":{},"year":{},"longitude":0,"day":{},"force":0,"latitude":0,"emin":0}}}}}}'.format(args.d[0], args.d[1], args.d[2], args.d[3], args.d[4], args.d[5], args.d[6], args.h * 60 + args.m, args.enable, args.repeat, args.id, args.M, args.state, args.Y, args.D)
+
+		elif args.cmd2 == 'delete':
+			request = '{{"schedule":{{"delete_rule":{{"id":"{}"}}}}}}'.format(args.id)
+
+		elif args.cmd2 == 'delete_all':
+			request = '{"schedule":{"delete_all_rules":null,"erase_runtime_stat":null}}'
+
+	elif args.cmd1 == 'countdown':
+		if args.cmd2 == 'get':
+			request = '{"count_down":{"get_rules":null}}'
+
+		elif args.cmd2 == 'add':
+			request = '{{"count_down":{{"add_rule":{{"enable":{},"delay":{},"act":{},"name":""}}}}}}'.format(args.enable, args.h * 3600 + args.m * 60 + args.s, args.state)
+
+		elif args.cmd2 == 'edit':
+			request = '{{"count_down":{{"edit_rule":{{"enable":{},"id":"{}","delay":{},"act":{},"name":""}}}}}}'.format(args.enable, args.id, args.h * 3600 + args.m * 60 + args.s, args.state)
+
+		elif args.cmd2 == 'delete':
+			request = '{{"count_down":{{"delete_rule":{{"id":"{}"}}}}}}'.format(args.id)
+
+		elif args.cmd2 == 'delete_all':
+			request = '{"count_down":{"delete_all_rules":null}}'
+
+	return request
+
+
+def sendRequest(request, ip, port):
+	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	sock.settimeout(2)
+	sock.sendto(encrypt(request), (ip, port))
+	response = decrypt(sock.recvfrom(2048)[0])
+	sock.close()
+	return response
+
+
+args = parse()
+request = createRequest(args)
+print('Request: ', request)
+if request:
+	response = sendRequest(request, args.ip, args.port)
+	print('Response: ', response)
+
